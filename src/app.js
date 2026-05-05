@@ -5,7 +5,6 @@ import cookieParser from 'cookie-parser'
 import { API_BASE_URL } from './common/config/constants.js'
 import ENV from './common/config/env.js'
 import globalErrorHandler from './common/middleware/globalError.middleware.js'
-import authorize from './common/middleware/role.middleware.js'
 import authenticate from './common/middleware/auth.middleware.js'
 
 import userRoutes from './modules/users/routes/user.routes.js'
@@ -23,7 +22,7 @@ const API_URL = `${API_BASE_URL}/${ENV.API_VERSION}`
 app.use(`${API_URL}/auth`, userRoutes)
 
 // EVENT ROUTES
-app.use(`${API_URL}/events`, authenticate, authorize('admin'), eventsRouter)
+app.use(`${API_URL}/events`, authenticate, eventsRouter)
 
 // TODO: Add more routes here
 

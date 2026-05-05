@@ -4,10 +4,7 @@ import { ErrorResponse } from '../utils/response.js'
 // middleware/role.middleware.ts
 
 const authorize = (...allowedRoles) => {
-    console.log('🚀 ~ authorize ~ allowedRoles:', allowedRoles)
     return (req, res, next) => {
-        console.log('🚀 ~ authorize ~ req:', req.user)
-
         try {
             const user = req.user
 
