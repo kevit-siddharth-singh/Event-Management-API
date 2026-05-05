@@ -1,5 +1,12 @@
 import { HTTP_STATUS } from '../../../common/config/constants.js'
-import { comparePassword, hashPassword, signAccessToken } from '../../../common/config/jwt.js'
+import ENV from '../../../common/config/env.js'
+import {
+    comparePassword,
+    hashPassword,
+    signAccessToken,
+    signRefreshToken,
+    verifyRefreshToken,
+} from '../../../common/config/jwt.js'
 import {
     ErrorResponse,
     SuccessResponse,
@@ -7,8 +14,8 @@ import {
 import User from '../models/user.model.js'
 
 export const loginController = async (req, res) => {
-    // Validating request body
     const { email, password } = req.body
+
     if (!email || !password) {
         return ErrorResponse(
             res,
@@ -17,9 +24,9 @@ export const loginController = async (req, res) => {
         )
     }
 
-    // check if user exists and password is correct
     try {
         const user = await User.findOne({ email })
+
         if (!user) {
             return ErrorResponse(
                 res,
@@ -29,6 +36,7 @@ export const loginController = async (req, res) => {
         }
 
         const isPasswordValid = await comparePassword(password, user.password)
+
         if (!isPasswordValid) {
             return ErrorResponse(
                 res,
@@ -36,6 +44,27 @@ export const loginController = async (req, res) => {
                 'Invalid email or password'
             )
         }
+
+        // Generate tokens
+        const accessToken = signAccessToken({ userId: user._id })
+        const refreshToken = signRefreshToken({ userId: user._id })
+
+        // Save refresh token in DB
+        user.refreshToken = refreshToken
+        await user.save()
+
+        // Set refresh token in cookie
+        res.cookie('refreshToken', refreshToken, {
+            httpOnly: true,
+            secure: ENV.NODE_ENV === 'production', // HTTPS only in prod
+            sameSite: 'strict', // CSRF protection
+            maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+        })
+
+        //  Send access token in response
+        return SuccessResponse(res, HTTP_STATUS.OK, 'Login successful', {
+            accessToken,
+        })
     } catch (error) {
         console.error('Error during login:', error)
         return ErrorResponse(
@@ -44,13 +73,6 @@ export const loginController = async (req, res) => {
             'Error during login'
         )
     }
-
-    // JWT Access and Refresh token generation logic
-    const accessToken = signAccessToken({ email })
-
-    return SuccessResponse(res, HTTP_STATUS.OK, 'Login successful', {
-        accessToken,
-    })
 }
 
 export const registerController = async (req, res) => {
@@ -114,6 +136,46 @@ export const registerController = async (req, res) => {
             res,
             HTTP_STATUS.INTERNAL_SERVER_ERROR,
             'Error registering user'
+        )
+    }
+}
+
+export const refreshTokenController = async (req, res) => {
+    const { refreshToken } = req.cookies
+
+    if (!refreshToken) {
+        return ErrorResponse(
+            res,
+            HTTP_STATUS.UNAUTHORIZED,
+            'Refresh token is missing'
+        )
+    }
+
+    try {
+        const payload = verifyRefreshToken(refreshToken)
+
+        if (!payload) {
+            return ErrorResponse(
+                res,
+                HTTP_STATUS.UNAUTHORIZED,
+                'Invalid refresh token'
+            )
+        }
+
+        const user = await User.findById(payload.userId)
+
+        // Generate new access token
+        const newAccessToken = signAccessToken({ userId: user._id })
+
+        return SuccessResponse(res, HTTP_STATUS.OK, 'Token refreshed', {
+            accessToken: newAccessToken,
+        })
+    } catch (error) {
+        console.error('Error refreshing token:', error)
+        return ErrorResponse(
+            res,
+            HTTP_STATUS.INTERNAL_SERVER_ERROR,
+            'Error refreshing token'
         )
     }
 }
