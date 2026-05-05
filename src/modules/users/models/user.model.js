@@ -1,4 +1,5 @@
 import mongoose from 'mongoose'
+import { ROLES } from '../../../common/config/constants.js'
 
 // Defining the User schema
 const userSchema = new mongoose.Schema(
@@ -11,6 +12,12 @@ const userSchema = new mongoose.Schema(
         },
         password: {
             type: String,
+            required: true,
+        },
+        role: {
+            type: String,
+            default: ROLES.USER,
+            enum: Object.values(ROLES),
             required: true,
         },
     },

@@ -12,11 +12,3 @@ export const ErrorResponse = (res, statusCode, message) => {
         message,
     })
 }
-
-export const globalErrorHandler = (err, req, res) => {
-    console.error(err.stack)
-    return res.status(500).json({
-        success: false,
-        message: 'Internal Server Error',
-    })
-}

@@ -1,10 +1,15 @@
 import express from 'express'
 import cors from 'cors'
-import userRoutes from './modules/users/routes/user.routes.js'
+import cookieParser from 'cookie-parser'
+
 import { API_BASE_URL } from './common/config/constants.js'
 import ENV from './common/config/env.js'
-import { globalErrorHandler } from './common/utils/response.js'
-import cookieParser from 'cookie-parser'
+import globalErrorHandler from './common/middleware/globalError.middleware.js'
+import authorize from './common/middleware/role.middleware.js'
+import authenticate from './common/middleware/auth.middleware.js'
+
+import userRoutes from './modules/users/routes/user.routes.js'
+import eventsRouter from './modules/Events/routes/events.routes.js'
 
 const app = express()
 
@@ -16,6 +21,9 @@ const API_URL = `${API_BASE_URL}/${ENV.API_VERSION}`
 
 // USER ROUTES
 app.use(`${API_URL}/auth`, userRoutes)
+
+// EVENT ROUTES
+app.use(`${API_URL}/events`, authenticate, authorize('admin'), eventsRouter)
 
 // TODO: Add more routes here
 

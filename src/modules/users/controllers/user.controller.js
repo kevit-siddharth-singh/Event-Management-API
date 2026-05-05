@@ -46,8 +46,14 @@ export const loginController = async (req, res) => {
         }
 
         // Generate tokens
-        const accessToken = signAccessToken({ userId: user._id })
-        const refreshToken = signRefreshToken({ userId: user._id })
+        const accessToken = signAccessToken({
+            userId: user._id,
+            role: user.role,
+        })
+        const refreshToken = signRefreshToken({
+            userId: user._id,
+            role: user.role,
+        })
 
         // Save refresh token in DB
         user.refreshToken = refreshToken
