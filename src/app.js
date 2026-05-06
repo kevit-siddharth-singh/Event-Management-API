@@ -9,6 +9,7 @@ import authenticate from './common/middleware/auth.middleware.js'
 
 import userRoutes from './modules/users/routes/user.routes.js'
 import eventsRouter from './modules/Events/routes/events.routes.js'
+import analyticsRouter from './modules/analytics/routes/analytics.routes.js'
 
 const app = express()
 
@@ -23,6 +24,9 @@ app.use(`${API_URL}/auth`, userRoutes)
 
 // EVENT ROUTES
 app.use(`${API_URL}/events`, authenticate, eventsRouter)
+
+// ANALYTICS ROUTES
+app.use(`${API_URL}/analytics`, authenticate, analyticsRouter)
 
 // TODO: Add more routes here
 

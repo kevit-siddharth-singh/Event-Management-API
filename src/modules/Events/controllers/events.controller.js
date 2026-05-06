@@ -6,9 +6,34 @@ import {
 
 import Event from '../models/event.models.js'
 
+/**
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ */
 export const getAllEventsController = async (req, res) => {
     try {
-        const events = await Event.find().select('-__v')
+        const { date, location } = req.query
+        const filter = {}
+
+        if (date) {
+            const start = new Date(date)
+            if (isNaN(start.getTime())) {
+                return ErrorResponse(
+                    res,
+                    HTTP_STATUS.BAD_REQUEST,
+                    'Invalid date filter'
+                )
+            }
+            const end = new Date(start)
+            end.setDate(end.getDate() + 1)
+            filter.date = { $gte: start, $lt: end }
+        }
+
+        if (location) {
+            filter.location = { $regex: location, $options: 'i' }
+        }
+
+        const events = await Event.find(filter).select('-__v')
         return SuccessResponse(
             res,
             HTTP_STATUS.OK,
@@ -21,16 +46,49 @@ export const getAllEventsController = async (req, res) => {
             res,
             HTTP_STATUS.INTERNAL_SERVER_ERROR,
             'An error occurred while retrieving events',
-            {
-                error: error.message,
-            }
+            { error: error.message }
         )
     }
 }
 
+/**
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ */
+export const getEventByIdController = async (req, res) => {
+    const { eventId } = req.params
+    try {
+        const event = await Event.findById(eventId)
+            .select('-__v')
+            .populate('createdBy', 'name email')
+        if (!event) {
+            return ErrorResponse(res, HTTP_STATUS.NOT_FOUND, 'Event not found')
+        }
+        return SuccessResponse(
+            res,
+            HTTP_STATUS.OK,
+            'Event retrieved successfully',
+            event
+        )
+    } catch (error) {
+        console.error('Error retrieving event:', error)
+        return ErrorResponse(
+            res,
+            HTTP_STATUS.INTERNAL_SERVER_ERROR,
+            'An error occurred while retrieving the event',
+            { error: error.message }
+        )
+    }
+}
+
+/**
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ */
 export const createEventController = async (req, res) => {
     // Events Validation
-    const { title, description, date, location } = req.body
+    const { title, description, date, location, maxAttendees } = req.body
+
     if (!title || !date) {
         return ErrorResponse(
             res,
@@ -63,12 +121,24 @@ export const createEventController = async (req, res) => {
         )
     }
 
+    if (
+        maxAttendees !== undefined &&
+        (typeof maxAttendees !== 'number' || maxAttendees < 0)
+    ) {
+        return ErrorResponse(
+            res,
+            HTTP_STATUS.BAD_REQUEST,
+            'maxAttendees must be a valid positive number'
+        )
+    }
+
     try {
         const newEvent = await Event.create({
             title,
             description,
             date,
             location,
+            maxAttendees,
             createdBy: req.user.userId,
         })
 
@@ -91,6 +161,80 @@ export const createEventController = async (req, res) => {
     }
 }
 
+/**
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ */
+export const updateEventController = async (req, res) => {
+    const { eventId } = req.params
+    const { title, description, date, location, maxAttendees } = req.body
+
+    // Validations
+    if (date && isNaN(Date.parse(date))) {
+        return ErrorResponse(
+            res,
+            HTTP_STATUS.BAD_REQUEST,
+            'Date must be a valid date string'
+        )
+    }
+
+    if (
+        maxAttendees !== undefined &&
+        (typeof maxAttendees !== 'number' || maxAttendees < 0)
+    ) {
+        return ErrorResponse(
+            res,
+            HTTP_STATUS.BAD_REQUEST,
+            'maxAttendees must be a valid positive number'
+        )
+    }
+
+    // Business logic for updating the event
+    try {
+        const event = await Event.findById(eventId)
+        if (!event) {
+            return ErrorResponse(res, HTTP_STATUS.NOT_FOUND, 'Event not found')
+        }
+
+        // Prevent shrinking capacity below current registrations
+        if (
+            maxAttendees !== undefined &&
+            maxAttendees < event.registrations.length
+        ) {
+            return ErrorResponse(
+                res,
+                HTTP_STATUS.BAD_REQUEST,
+                'maxAttendees cannot be less than the number of existing registrations'
+            )
+        }
+
+        const updated = await Event.findByIdAndUpdate(
+            eventId,
+            { title, description, date, location, maxAttendees },
+            { new: true, runValidators: true }
+        ).select('-__v')
+
+        return SuccessResponse(
+            res,
+            HTTP_STATUS.OK,
+            'Event updated successfully',
+            updated
+        )
+    } catch (error) {
+        console.error('Error updating event:', error)
+        return ErrorResponse(
+            res,
+            HTTP_STATUS.INTERNAL_SERVER_ERROR,
+            'An error occurred while updating the event',
+            { error: error.message }
+        )
+    }
+}
+
+/**
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ */
 export const deleteEventController = async (req, res) => {
     const { eventId } = req.params
 
@@ -128,3 +272,101 @@ export const deleteEventController = async (req, res) => {
         )
     }
 }
+
+/**
+ * Register the authenticated user for an event.
+ * Fails if event is full or user is already registered.
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ */
+export const registerForEventController = async (req, res) => {
+    const { eventId } = req.params
+    const userId = req.user.userId
+
+    try {
+        const event = await Event.findById(eventId)
+        if (!event) {
+            return ErrorResponse(res, HTTP_STATUS.NOT_FOUND, 'Event not found')
+        }
+
+        if (event.registrations.some((id) => id.toString() === userId)) {
+            return ErrorResponse(
+                res,
+                HTTP_STATUS.CONFLICT,
+                'You are already registered for this event'
+            )
+        }
+
+        if (
+            event.maxAttendees > 0 &&
+            event.registrations.length >= event.maxAttendees
+        ) {
+            return ErrorResponse(res, HTTP_STATUS.BAD_REQUEST, 'Event is full')
+        }
+
+        event.registrations.push(userId)
+        await event.save()
+
+        return SuccessResponse(
+            res,
+            HTTP_STATUS.OK,
+            'Successfully registered for the event',
+            { eventId, registrations: event.registrations.length }
+        )
+    } catch (error) {
+        console.error('Error registering for event:', error)
+        return ErrorResponse(
+            res,
+            HTTP_STATUS.INTERNAL_SERVER_ERROR,
+            'An error occurred while registering for the event',
+            { error: error.message }
+        )
+    }
+}
+
+/**
+ * Cancel the authenticated user's registration for an event.
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ */
+export const cancelRegistrationController = async (req, res) => {
+    const { eventId } = req.params
+    const userId = req.user.userId
+
+    try {
+        const event = await Event.findById(eventId)
+        if (!event) {
+            return ErrorResponse(res, HTTP_STATUS.NOT_FOUND, 'Event not found')
+        }
+
+        const index = event.registrations.findIndex(
+            (id) => id.toString() === userId
+        )
+        if (index === -1) {
+            return ErrorResponse(
+                res,
+                HTTP_STATUS.NOT_FOUND,
+                'You are not registered for this event'
+            )
+        }
+
+        event.registrations.splice(index, 1)
+        await event.save()
+
+        return SuccessResponse(
+            res,
+            HTTP_STATUS.OK,
+            'Registration cancelled successfully',
+            { eventId, registrations: event.registrations.length }
+        )
+    } catch (error) {
+        console.error('Error cancelling registration:', error)
+        return ErrorResponse(
+            res,
+            HTTP_STATUS.INTERNAL_SERVER_ERROR,
+            'An error occurred while cancelling the registration',
+            { error: error.message }
+        )
+    }
+}
+    
