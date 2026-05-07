@@ -3,6 +3,11 @@ import { ErrorResponse } from '../utils/response.js'
 
 // middleware/role.middleware.ts
 
+/**
+ * Middleware factory to authorize requests based on user roles
+ * @param {...string} allowedRoles - The roles allowed to access the resource
+ * @returns {Function} Express middleware function
+ */
 const authorize = (...allowedRoles) => {
     return (req, res, next) => {
         try {

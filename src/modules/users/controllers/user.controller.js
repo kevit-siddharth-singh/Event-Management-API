@@ -13,16 +13,14 @@ import {
 } from '../../../common/utils/response.js'
 import User from '../models/user.model.js'
 
+/**
+ * Handle user login
+ * @param {import('express').Request} req - Express request object
+ * @param {import('express').Response} res - Express response object
+ * @returns {Promise<void>}
+ */
 export const loginController = async (req, res) => {
     const { email, password } = req.body
-
-    if (!email || !password) {
-        return ErrorResponse(
-            res,
-            HTTP_STATUS.BAD_REQUEST,
-            'Email and password are required'
-        )
-    }
 
     try {
         const user = await User.findOne({ email })
@@ -81,24 +79,14 @@ export const loginController = async (req, res) => {
     }
 }
 
+/**
+ * Handle user registration
+ * @param {import('express').Request} req - Express request object
+ * @param {import('express').Response} res - Express response object
+ * @returns {Promise<void>}
+ */
 export const registerController = async (req, res) => {
-    // Validating request body
-    const { email, password, confirmPassword } = req.body
-    if (!email || !password || !confirmPassword) {
-        return ErrorResponse(
-            res,
-            400,
-            'Email, password and confirm password are required'
-        )
-    }
-
-    if (password !== confirmPassword) {
-        return ErrorResponse(
-            res,
-            HTTP_STATUS.BAD_REQUEST,
-            'Password and confirm password do not match'
-        )
-    }
+    const { email, password } = req.body
 
     // Check if user with the same email already exists
     try {
@@ -146,6 +134,12 @@ export const registerController = async (req, res) => {
     }
 }
 
+/**
+ * Handle token refresh
+ * @param {import('express').Request} req - Express request object
+ * @param {import('express').Response} res - Express response object
+ * @returns {Promise<void>}
+ */
 export const refreshTokenController = async (req, res) => {
     const { refreshToken } = req.cookies
 

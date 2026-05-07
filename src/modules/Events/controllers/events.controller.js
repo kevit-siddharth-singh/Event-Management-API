@@ -7,8 +7,10 @@ import {
 import Event from '../models/event.models.js'
 
 /**
- * @param {import('express').Request} req
- * @param {import('express').Response} res
+ * Get all events with optional filters
+ * @param {import('express').Request} req - Express request object
+ * @param {import('express').Response} res - Express response object
+ * @returns {Promise<void>}
  */
 export const getAllEventsController = async (req, res) => {
     try {
@@ -17,13 +19,6 @@ export const getAllEventsController = async (req, res) => {
 
         if (date) {
             const start = new Date(date)
-            if (isNaN(start.getTime())) {
-                return ErrorResponse(
-                    res,
-                    HTTP_STATUS.BAD_REQUEST,
-                    'Invalid date filter'
-                )
-            }
             const end = new Date(start)
             end.setDate(end.getDate() + 1)
             filter.date = { $gte: start, $lt: end }
@@ -52,8 +47,10 @@ export const getAllEventsController = async (req, res) => {
 }
 
 /**
- * @param {import('express').Request} req
- * @param {import('express').Response} res
+ * Get a specific event by ID
+ * @param {import('express').Request} req - Express request object
+ * @param {import('express').Response} res - Express response object
+ * @returns {Promise<void>}
  */
 export const getEventByIdController = async (req, res) => {
     const { eventId } = req.params
@@ -82,55 +79,13 @@ export const getEventByIdController = async (req, res) => {
 }
 
 /**
- * @param {import('express').Request} req
- * @param {import('express').Response} res
+ * Create a new event
+ * @param {import('express').Request} req - Express request object
+ * @param {import('express').Response} res - Express response object
+ * @returns {Promise<void>}
  */
 export const createEventController = async (req, res) => {
-    // Events Validation
     const { title, description, date, location, maxAttendees } = req.body
-
-    if (!title || !date) {
-        return ErrorResponse(
-            res,
-            HTTP_STATUS.BAD_REQUEST,
-            'Title and Date are required'
-        )
-    }
-
-    if (description && typeof description !== 'string') {
-        return ErrorResponse(
-            res,
-            HTTP_STATUS.BAD_REQUEST,
-            'Description must be a string'
-        )
-    }
-
-    if (date && isNaN(Date.parse(date))) {
-        return ErrorResponse(
-            res,
-            HTTP_STATUS.BAD_REQUEST,
-            'Date must be a valid date string'
-        )
-    }
-
-    if (location && typeof location !== 'string') {
-        return ErrorResponse(
-            res,
-            HTTP_STATUS.BAD_REQUEST,
-            'Location must be a string'
-        )
-    }
-
-    if (
-        maxAttendees !== undefined &&
-        (typeof maxAttendees !== 'number' || maxAttendees < 0)
-    ) {
-        return ErrorResponse(
-            res,
-            HTTP_STATUS.BAD_REQUEST,
-            'maxAttendees must be a valid positive number'
-        )
-    }
 
     try {
         const newEvent = await Event.create({
@@ -162,32 +117,14 @@ export const createEventController = async (req, res) => {
 }
 
 /**
- * @param {import('express').Request} req
- * @param {import('express').Response} res
+ * Update an existing event
+ * @param {import('express').Request} req - Express request object
+ * @param {import('express').Response} res - Express response object
+ * @returns {Promise<void>}
  */
 export const updateEventController = async (req, res) => {
     const { eventId } = req.params
     const { title, description, date, location, maxAttendees } = req.body
-
-    // Validations
-    if (date && isNaN(Date.parse(date))) {
-        return ErrorResponse(
-            res,
-            HTTP_STATUS.BAD_REQUEST,
-            'Date must be a valid date string'
-        )
-    }
-
-    if (
-        maxAttendees !== undefined &&
-        (typeof maxAttendees !== 'number' || maxAttendees < 0)
-    ) {
-        return ErrorResponse(
-            res,
-            HTTP_STATUS.BAD_REQUEST,
-            'maxAttendees must be a valid positive number'
-        )
-    }
 
     // Business logic for updating the event
     try {
@@ -232,19 +169,13 @@ export const updateEventController = async (req, res) => {
 }
 
 /**
- * @param {import('express').Request} req
- * @param {import('express').Response} res
+ * Delete an event
+ * @param {import('express').Request} req - Express request object
+ * @param {import('express').Response} res - Express response object
+ * @returns {Promise<void>}
  */
 export const deleteEventController = async (req, res) => {
     const { eventId } = req.params
-
-    if (!eventId) {
-        return ErrorResponse(
-            res,
-            HTTP_STATUS.BAD_REQUEST,
-            'Event ID is required'
-        )
-    }
 
     try {
         const event = await Event.findById(eventId)
@@ -274,10 +205,10 @@ export const deleteEventController = async (req, res) => {
 }
 
 /**
- * Register the authenticated user for an event.
- * Fails if event is full or user is already registered.
- * @param {import('express').Request} req
- * @param {import('express').Response} res
+ * Register the authenticated user for an event
+ * @param {import('express').Request} req - Express request object
+ * @param {import('express').Response} res - Express response object
+ * @returns {Promise<void>}
  */
 export const registerForEventController = async (req, res) => {
     const { eventId } = req.params
@@ -325,9 +256,10 @@ export const registerForEventController = async (req, res) => {
 }
 
 /**
- * Cancel the authenticated user's registration for an event.
- * @param {import('express').Request} req
- * @param {import('express').Response} res
+ * Cancel the authenticated user's registration for an event
+ * @param {import('express').Request} req - Express request object
+ * @param {import('express').Response} res - Express response object
+ * @returns {Promise<void>}
  */
 export const cancelRegistrationController = async (req, res) => {
     const { eventId } = req.params
@@ -369,4 +301,3 @@ export const cancelRegistrationController = async (req, res) => {
         )
     }
 }
-    

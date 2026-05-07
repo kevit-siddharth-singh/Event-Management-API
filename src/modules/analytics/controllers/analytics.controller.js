@@ -7,8 +7,9 @@ import Event from '../../Events/models/event.models.js'
 
 /**
  * Returns total number of events per month for the current year.
- * @param {import('express').Request} req
- * @param {import('express').Response} res
+ * @param {import('express').Request} req - Express request object
+ * @param {import('express').Response} res - Express response object
+ * @returns {Promise<void>}
  */
 export const eventsPerMonthController = async (req, res) => {
     try {
@@ -57,8 +58,9 @@ export const eventsPerMonthController = async (req, res) => {
 
 /**
  * Returns the top 3 events with the highest number of registrations.
- * @param {import('express').Request} req
- * @param {import('express').Response} res
+ * @param {import('express').Request} req - Express request object
+ * @param {import('express').Response} res - Express response object
+ * @returns {Promise<void>}
  */
 export const topEventsController = async (req, res) => {
     try {
